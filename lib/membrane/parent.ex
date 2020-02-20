@@ -20,25 +20,33 @@ defmodule Membrane.Parent do
   Callback invoked when bin transition from `:stopped` to `:prepared` state has finished,
   that is all of its children are prepared to enter `:playing` state.
   """
-  @callback handle_stopped_to_prepared(context :: any, state :: internal_state_t()) :: callback_return_t
+  @callback handle_stopped_to_prepared(context :: any, state :: internal_state_t()) ::
+              callback_return_t
+  @callback handle_stopped_to_prepared(state :: internal_state_t()) :: callback_return_t
 
   @doc """
   Callback invoked when bin transition from `:playing` to `:prepared` state has finished,
   that is all of its children are prepared to be stopped.
   """
-  @callback handle_playing_to_prepared(context :: any, state :: internal_state_t()) :: callback_return_t
+  @callback handle_playing_to_prepared(context :: any, state :: internal_state_t()) ::
+              callback_return_t
+  @callback handle_playing_to_prepared(state :: internal_state_t()) :: callback_return_t
 
   @doc """
   Callback invoked when bin is in `:playing` state, i.e. all its children
   are in this state.
   """
-  @callback handle_prepared_to_playing(context :: any, state :: internal_state_t()) :: callback_return_t
+  @callback handle_prepared_to_playing(context :: any, state :: internal_state_t()) ::
+              callback_return_t
+  @callback handle_prepared_to_playing(state :: internal_state_t()) :: callback_return_t
 
   @doc """
   Callback invoked when bin is in `:playing` state, i.e. all its children
   are in this state.
   """
-  @callback handle_prepared_to_stopped(context :: any, state :: internal_state_t()) :: callback_return_t
+  @callback handle_prepared_to_stopped(context :: any, state :: internal_state_t()) ::
+              callback_return_t
+  @callback handle_prepared_to_stopped(state :: internal_state_t()) :: callback_return_t
 
   @doc """
   Callback invoked when a notification comes in from an element.
@@ -46,7 +54,12 @@ defmodule Membrane.Parent do
   @callback handle_notification(
               notification :: Notification.t(),
               element :: Child.name_t(),
-              context :: any, 
+              context :: any,
+              state :: internal_state_t()
+            ) :: callback_return_t
+  @callback handle_notification(
+              notification :: Notification.t(),
+              element :: Child.name_t(),
               state :: internal_state_t()
             ) :: callback_return_t
 
@@ -56,14 +69,20 @@ defmodule Membrane.Parent do
 
   Useful for receiving ticks from timer, data sent from NIFs or other stuff.
   """
-  @callback handle_other(message :: any, context :: any,  state :: internal_state_t()) :: callback_return_t
+  @callback handle_other(message :: any, context :: any, state :: internal_state_t()) ::
+              callback_return_t
+  @callback handle_other(message :: any, state :: internal_state_t()) :: callback_return_t
 
   @doc """
   Callback invoked when pipeline's element receives `Membrane.Event.StartOfStream` event.
   """
   @callback handle_element_start_of_stream(
               {Child.name_t(), Pad.ref_t()},
-              context :: any, 
+              context :: any,
+              state :: internal_state_t()
+            ) :: callback_return_t
+  @callback handle_element_start_of_stream(
+              {Child.name_t(), Pad.ref_t()},
               state :: internal_state_t()
             ) :: callback_return_t
 
@@ -72,7 +91,11 @@ defmodule Membrane.Parent do
   """
   @callback handle_element_end_of_stream(
               {Child.name_t(), Pad.ref_t()},
-              context :: any, 
+              context :: any,
+              state :: internal_state_t()
+            ) :: callback_return_t
+  @callback handle_element_end_of_stream(
+              {Child.name_t(), Pad.ref_t()},
               state :: internal_state_t()
             ) :: callback_return_t
 
@@ -85,7 +108,12 @@ defmodule Membrane.Parent do
   """
   @callback handle_spec_started(
               children :: [Child.name_t()],
-              context :: any, 
+              context :: any,
+              state :: internal_state_t()
+            ) :: callback_return_t
+  @callback handle_spec_started(
+              children :: [Child.name_t()],
+              context :: any,
               state :: internal_state_t()
             ) :: callback_return_t
 
@@ -121,30 +149,70 @@ defmodule Membrane.Parent do
       unquote(bring_pad)
 
       @impl true
-      def handle_stopped_to_prepared(_ctx, state), do: {:ok, state}
+      def handle_stopped_to_prepared(_ctx, state), do: handle_stopped_to_prepared(state)
 
       @impl true
-      def handle_playing_to_prepared(_ctx, state), do: {:ok, state}
+      def handle_stopped_to_prepared(state), do: {:ok, state}
 
       @impl true
-      def handle_prepared_to_playing(_ctx, state), do: {:ok, state}
+      def handle_playing_to_prepared(_ctx, state), do: handle_playing_to_prepared(state)
 
       @impl true
-      def handle_prepared_to_stopped(_ctx, state), do: {:ok, state}
+      def handle_playing_to_prepared(state), do: {:ok, state}
 
       @impl true
-      def handle_other(_message, _ctx, state), do: {:ok, state}
+      def handle_prepared_to_playing(_ctx, state), do: handle_prepared_to_playing(state)
 
       @impl true
-      def handle_spec_started(_new_children, _ctx, state), do: {:ok, state}
+      def handle_prepared_to_playing(state), do: {:ok, state}
 
       @impl true
-      def handle_element_start_of_stream({_element, _pad}, _ctx, state), do: {:ok, state}
+      def handle_prepared_to_stopped(_ctx, state), do: handle_prepared_to_stopped(state)
 
       @impl true
-      def handle_element_end_of_stream({_element, _pad}, _ctx, state), do: {:ok, state}
+      def handle_prepared_to_stopped(state), do: {:ok, state}
 
-      defoverridable handle_stopped_to_prepared: 2,
+      @impl true
+      def handle_other(message, _ctx, state), do: handle_other(message, state)
+
+      @impl true
+      def handle_other(_message, state), do: {:ok, state}
+
+      @impl true
+      def handle_spec_started(new_children, _ctx, state),
+        do: handle_spec_started(new_children, state)
+
+      @impl true
+      def handle_spec_started(_new_children, state), do: {:ok, state}
+
+      @impl true
+      def handle_element_start_of_stream({element, pad}, _ctx, state),
+        do: handle_element_start_of_stream({element, pad}, state)
+
+      @impl true
+      def handle_element_start_of_stream({_element, _pad}, state), do: {:ok, state}
+
+      @impl true
+      def handle_element_end_of_stream({element, pad}, _ctx, state),
+        do: handle_element_end_of_stream({element, pad}, state)
+
+      @impl true
+      def handle_element_end_of_stream({_element, _pad}, state), do: {:ok, state}
+
+      @impl true
+      def handle_notification(notification, element, _ctx, state),
+        do: handle_notification(notification, element, state)
+
+      defoverridable handle_stopped_to_prepared: 1,
+                     handle_playing_to_prepared: 1,
+                     handle_prepared_to_playing: 1,
+                     handle_prepared_to_stopped: 1,
+                     handle_other: 2,
+                     handle_spec_started: 2,
+                     handle_element_start_of_stream: 2,
+                     handle_element_end_of_stream: 2,
+                     handle_notification: 4,
+                     handle_stopped_to_prepared: 2,
                      handle_playing_to_prepared: 2,
                      handle_prepared_to_playing: 2,
                      handle_prepared_to_stopped: 2,

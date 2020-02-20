@@ -16,10 +16,13 @@ defmodule Membrane.Core.Parent.LifecycleController do
 
   alias Core.Child.PadModel
   alias Membrane.PlaybackState
+  alias Membrane.Parent.CallbackContext
 
   require Message
   require PadModel
   require PlaybackState
+
+  require Membrane.Parent.CallbackContext.{PlaybackChange, Notification, Other, StreamManagement}
 
   @type state_t :: Core.Bin.State.t() | Core.Pipeline.State.t()
 
@@ -48,6 +51,7 @@ defmodule Membrane.Core.Parent.LifecycleController do
 
   @impl PlaybackHandler
   def handle_playback_state_changed(old, new, state) do
+    context = &CallbackContext.PlaybackChange.from_state/1
     callback = PlaybackHandler.state_change_callback(old, new)
 
     if new == :stopped and state.terminating? do
@@ -59,6 +63,7 @@ defmodule Membrane.Core.Parent.LifecycleController do
     CallbackHandler.exec_and_handle_callback(
       callback,
       action_handler,
+      %{context: context},
       [],
       state
     )
@@ -92,11 +97,13 @@ defmodule Membrane.Core.Parent.LifecycleController do
           Type.stateful_try_t(state_t)
   def handle_notification(from, notification, state) do
     with {:ok, _} <- state |> Parent.ChildrenModel.get_child_data(from) do
+      context = &CallbackContext.Notification.from_state/1
       action_handler = get_callback_action_handler(state)
 
       CallbackHandler.exec_and_handle_callback(
         :handle_notification,
         action_handler,
+        %{context: context},
         [notification, from],
         state
       )
@@ -114,11 +121,13 @@ defmodule Membrane.Core.Parent.LifecycleController do
 
   @spec handle_other(any, state_t()) :: Type.stateful_try_t(state_t)
   def handle_other(message, state) do
+    context = &CallbackContext.Other.from_state/1
     action_handler = get_callback_action_handler(state)
 
     CallbackHandler.exec_and_handle_callback(
       :handle_other,
       action_handler,
+      %{context: context},
       [message],
       state
     )
@@ -159,11 +168,13 @@ defmodule Membrane.Core.Parent.LifecycleController do
           Type.stateful_try_t(state_t)
   def handle_stream_management_event(cb, element_name, pad_ref, state)
       when cb in [:handle_start_of_stream, :handle_end_of_stream] do
+    context = &CallbackContext.StreamManagement.from_state/1
     action_handler = get_callback_action_handler(state)
 
     CallbackHandler.exec_and_handle_callback(
       to_parent_sm_callback(cb),
       action_handler,
+      %{context: context},
       [{element_name, pad_ref}],
       state
     )
