@@ -113,7 +113,6 @@ defmodule Membrane.Parent do
             ) :: callback_return_t
   @callback handle_spec_started(
               children :: [Child.name_t()],
-              context :: any,
               state :: internal_state_t()
             ) :: callback_return_t
 
