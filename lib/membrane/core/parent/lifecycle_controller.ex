@@ -16,13 +16,22 @@ defmodule Membrane.Core.Parent.LifecycleController do
 
   alias Core.Child.PadModel
   alias Membrane.PlaybackState
-  alias Membrane.Parent.CallbackContext
 
   require Message
   require PadModel
   require PlaybackState
 
-  require Membrane.Parent.CallbackContext.{PlaybackChange, Notification, Other, StreamManagement}
+  # require Membrane.CallbackContext
+  # require Membrane.Pipeline.CallbackContext
+  # require Membrane.Bin.CallbackContext
+  require Membrane.Pipeline.CallbackContext.{
+    PlaybackChange,
+    Notification,
+    Other,
+    StreamManagement
+  }
+
+  require Membrane.Bin.CallbackContext.{PlaybackChange, Notification, Other, StreamManagement}
 
   @type state_t :: Core.Bin.State.t() | Core.Pipeline.State.t()
 
@@ -51,7 +60,20 @@ defmodule Membrane.Core.Parent.LifecycleController do
 
   @impl PlaybackHandler
   def handle_playback_state_changed(old, new, state) do
-    context = &CallbackContext.PlaybackChange.from_state/1
+    context_module = get_context_module(PlaybackChange, state)
+
+    IO.puts(
+      "\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n"
+    )
+
+    IO.inspect(context_module)
+
+    IO.puts(
+      "\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n\ndupn\n"
+    )
+
+    context = &context_module.from_state/1
+
     callback = PlaybackHandler.state_change_callback(old, new)
 
     if new == :stopped and state.terminating? do
@@ -97,7 +119,9 @@ defmodule Membrane.Core.Parent.LifecycleController do
           Type.stateful_try_t(state_t)
   def handle_notification(from, notification, state) do
     with {:ok, _} <- state |> Parent.ChildrenModel.get_child_data(from) do
-      context = &CallbackContext.Notification.from_state/1
+      context_module = get_context_module(Notification, state)
+      context = &context_module.from_state/1
+
       action_handler = get_callback_action_handler(state)
 
       CallbackHandler.exec_and_handle_callback(
@@ -121,7 +145,9 @@ defmodule Membrane.Core.Parent.LifecycleController do
 
   @spec handle_other(any, state_t()) :: Type.stateful_try_t(state_t)
   def handle_other(message, state) do
-    context = &CallbackContext.Other.from_state/1
+    context_module = get_context_module(Other, state)
+    context = &context_module.from_state/1
+
     action_handler = get_callback_action_handler(state)
 
     CallbackHandler.exec_and_handle_callback(
@@ -168,7 +194,9 @@ defmodule Membrane.Core.Parent.LifecycleController do
           Type.stateful_try_t(state_t)
   def handle_stream_management_event(cb, element_name, pad_ref, state)
       when cb in [:handle_start_of_stream, :handle_end_of_stream] do
-    context = &CallbackContext.StreamManagement.from_state/1
+    context_module = get_context_module(StreamManagement, state)
+    context = &context_module.from_state/1
+
     action_handler = get_callback_action_handler(state)
 
     CallbackHandler.exec_and_handle_callback(
@@ -200,5 +228,13 @@ defmodule Membrane.Core.Parent.LifecycleController do
 
   defp do_toggle_syncs_active(children_data, fun) do
     children_data |> Enum.uniq_by(& &1.sync) |> Enum.map(& &1.sync) |> Bunch.Enum.try_each(fun)
+  end
+
+  defp get_context_module(module_sufix, %Core.Pipeline.State{}) do
+    Module.concat(Membrane.Pipeline.CallbackContext, module_sufix)
+  end
+
+  defp get_context_module(module_sufix, %Core.Bin.State{}) do
+    Module.concat(Membrane.Bin.CallbackContext, module_sufix)
   end
 end
